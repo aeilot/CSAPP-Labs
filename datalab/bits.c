@@ -156,15 +156,16 @@ int tmin(void) {
 }
 //2
 /*
- * isTmax - returns 1 if x is the maximum, two's complement number,
+ * isTmax - returns 1 if x is the maximum, two's complement number, (0x7fffffff)
  *     and 0 otherwise 
  *   Legal ops: ! ~ & ^ | +
  *   Max ops: 10
  *   Rating: 1
  */
 int isTmax(int x) {
-  
-  return 2;
+  int map = x + 0x01;
+  int res = ~(map + x);
+  return !res & (!!map);
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
