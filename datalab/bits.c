@@ -176,7 +176,10 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  int a = 0xAA;
+  int b = (a<<8) + (a<<16) + (a <<24) + a;
+  int bm = ~b+1;
+  return !((x&b)+bm);
 }
 /* 
  * negate - return -x 
