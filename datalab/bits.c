@@ -202,7 +202,11 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+    int ge_30 = !((x + (~0x30 + 1)) >> 31); 
+    
+    int le_39 = !((0x39 + (~x + 1)) >> 31); 
+    
+    return ge_30 & le_39; 
 }
 /* 
  * conditional - same as x ? y : z 
