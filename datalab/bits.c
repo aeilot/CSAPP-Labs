@@ -255,7 +255,20 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  int fg = x>>31;
+  x = ((~fg) & x) | (fg &(~x));
+  int h16 = !!(x >> 16) << 4;
+  x >>= h16;
+  int h8 = !!(x>>8) << 3;
+  x >>= h8;
+  int h4 = !!(x>>4) << 2;
+  x >>= h4;
+  int h2 = !!(x>>2) << 1;
+  x>>=h2;
+  int h1 = !!(x>>1);
+  x>>=h1;
+  int h0 = x;
+  return h0 + h1 + h2 + h4 + h8 + h16 + 1;
 }
 //float
 /* 
@@ -342,5 +355,13 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    if(x < -149)
+        return 0;
+    else if(x < -126)
+        return 1 << (x + 149);
+    else if(x <= 127)
+        return (x + 127) << 23;
+    else
+        return (0xFF) << 23;
 }
+
