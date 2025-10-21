@@ -1,8 +1,8 @@
 	.file	"bits.c"
 	.text
-	.globl	_Z6bitXorii
-	.type	_Z6bitXorii, @function
-_Z6bitXorii:
+	.globl	bitXor
+	.type	bitXor, @function
+bitXor:
 .LFB0:
 	.cfi_startproc
 	endbr64
@@ -11,10 +11,10 @@ _Z6bitXorii:
 	ret
 	.cfi_endproc
 .LFE0:
-	.size	_Z6bitXorii, .-_Z6bitXorii
-	.globl	_Z4tminv
-	.type	_Z4tminv, @function
-_Z4tminv:
+	.size	bitXor, .-bitXor
+	.globl	tmin
+	.type	tmin, @function
+tmin:
 .LFB1:
 	.cfi_startproc
 	endbr64
@@ -22,32 +22,41 @@ _Z4tminv:
 	ret
 	.cfi_endproc
 .LFE1:
-	.size	_Z4tminv, .-_Z4tminv
-	.globl	_Z6isTmaxi
-	.type	_Z6isTmaxi, @function
-_Z6isTmaxi:
+	.size	tmin, .-tmin
+	.globl	isTmax
+	.type	isTmax, @function
+isTmax:
 .LFB2:
 	.cfi_startproc
 	endbr64
-	movl	$0, %eax
+	leal	1(%rdi,%rdi), %eax
+	cmpl	$-1, %eax
+	sete	%dl
+	cmpl	$-1, %edi
+	setne	%al
+	movzbl	%al, %eax
+	andl	%edx, %eax
 	ret
 	.cfi_endproc
 .LFE2:
-	.size	_Z6isTmaxi, .-_Z6isTmaxi
-	.globl	_Z10allOddBitsi
-	.type	_Z10allOddBitsi, @function
-_Z10allOddBitsi:
+	.size	isTmax, .-isTmax
+	.globl	allOddBits
+	.type	allOddBits, @function
+allOddBits:
 .LFB3:
 	.cfi_startproc
 	endbr64
-	movl	$2, %eax
+	notl	%edi
+	testl	$-1431655766, %edi
+	sete	%al
+	movzbl	%al, %eax
 	ret
 	.cfi_endproc
 .LFE3:
-	.size	_Z10allOddBitsi, .-_Z10allOddBitsi
-	.globl	_Z6negatei
-	.type	_Z6negatei, @function
-_Z6negatei:
+	.size	allOddBits, .-allOddBits
+	.globl	negate
+	.type	negate, @function
+negate:
 .LFB4:
 	.cfi_startproc
 	endbr64
@@ -56,43 +65,63 @@ _Z6negatei:
 	ret
 	.cfi_endproc
 .LFE4:
-	.size	_Z6negatei, .-_Z6negatei
-	.globl	_Z12isAsciiDigiti
-	.type	_Z12isAsciiDigiti, @function
-_Z12isAsciiDigiti:
+	.size	negate, .-negate
+	.globl	isAsciiDigit
+	.type	isAsciiDigit, @function
+isAsciiDigit:
 .LFB5:
 	.cfi_startproc
 	endbr64
-	movl	$2, %eax
+	cmpl	$57, %edi
+	setle	%dl
+	cmpl	$47, %edi
+	setg	%al
+	movzbl	%al, %eax
+	andl	%edx, %eax
 	ret
 	.cfi_endproc
 .LFE5:
-	.size	_Z12isAsciiDigiti, .-_Z12isAsciiDigiti
-	.globl	_Z11conditionaliii
-	.type	_Z11conditionaliii, @function
-_Z11conditionaliii:
+	.size	isAsciiDigit, .-isAsciiDigit
+	.globl	conditional
+	.type	conditional, @function
+conditional:
 .LFB6:
 	.cfi_startproc
 	endbr64
-	movl	$2, %eax
+	movl	%edi, %eax
+	movl	%edx, %edi
+	testl	%eax, %eax
+	setne	%cl
+	setne	%dl
+	movzbl	%dl, %edx
+	leal	-1(%rdx), %eax
+	andl	%edi, %eax
+	testb	%cl, %cl
+	movl	$0, %edx
+	cmove	%edx, %esi
+	orl	%esi, %eax
 	ret
 	.cfi_endproc
 .LFE6:
-	.size	_Z11conditionaliii, .-_Z11conditionaliii
-	.globl	_Z13isLessOrEqualii
-	.type	_Z13isLessOrEqualii, @function
-_Z13isLessOrEqualii:
+	.size	conditional, .-conditional
+	.globl	isLessOrEqual
+	.type	isLessOrEqual, @function
+isLessOrEqual:
 .LFB7:
 	.cfi_startproc
 	endbr64
-	movl	$2, %eax
+	notl	%edi
+	addl	%esi, %edi
+	cmpl	$-1, %edi
+	setge	%al
+	movzbl	%al, %eax
 	ret
 	.cfi_endproc
 .LFE7:
-	.size	_Z13isLessOrEqualii, .-_Z13isLessOrEqualii
-	.globl	_Z10logicalNegi
-	.type	_Z10logicalNegi, @function
-_Z10logicalNegi:
+	.size	isLessOrEqual, .-isLessOrEqual
+	.globl	logicalNeg
+	.type	logicalNeg, @function
+logicalNeg:
 .LFB8:
 	.cfi_startproc
 	endbr64
@@ -100,10 +129,10 @@ _Z10logicalNegi:
 	ret
 	.cfi_endproc
 .LFE8:
-	.size	_Z10logicalNegi, .-_Z10logicalNegi
-	.globl	_Z11howManyBitsi
-	.type	_Z11howManyBitsi, @function
-_Z11howManyBitsi:
+	.size	logicalNeg, .-logicalNeg
+	.globl	howManyBits
+	.type	howManyBits, @function
+howManyBits:
 .LFB9:
 	.cfi_startproc
 	endbr64
@@ -111,10 +140,10 @@ _Z11howManyBitsi:
 	ret
 	.cfi_endproc
 .LFE9:
-	.size	_Z11howManyBitsi, .-_Z11howManyBitsi
-	.globl	_Z11floatScale2j
-	.type	_Z11floatScale2j, @function
-_Z11floatScale2j:
+	.size	howManyBits, .-howManyBits
+	.globl	floatScale2
+	.type	floatScale2, @function
+floatScale2:
 .LFB10:
 	.cfi_startproc
 	endbr64
@@ -122,10 +151,10 @@ _Z11floatScale2j:
 	ret
 	.cfi_endproc
 .LFE10:
-	.size	_Z11floatScale2j, .-_Z11floatScale2j
-	.globl	_Z14floatFloat2Intj
-	.type	_Z14floatFloat2Intj, @function
-_Z14floatFloat2Intj:
+	.size	floatScale2, .-floatScale2
+	.globl	floatFloat2Int
+	.type	floatFloat2Int, @function
+floatFloat2Int:
 .LFB11:
 	.cfi_startproc
 	endbr64
@@ -133,10 +162,10 @@ _Z14floatFloat2Intj:
 	ret
 	.cfi_endproc
 .LFE11:
-	.size	_Z14floatFloat2Intj, .-_Z14floatFloat2Intj
-	.globl	_Z11floatPower2i
-	.type	_Z11floatPower2i, @function
-_Z11floatPower2i:
+	.size	floatFloat2Int, .-floatFloat2Int
+	.globl	floatPower2
+	.type	floatPower2, @function
+floatPower2:
 .LFB12:
 	.cfi_startproc
 	endbr64
@@ -144,7 +173,7 @@ _Z11floatPower2i:
 	ret
 	.cfi_endproc
 .LFE12:
-	.size	_Z11floatPower2i, .-_Z11floatPower2i
+	.size	floatPower2, .-floatPower2
 	.ident	"GCC: (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0"
 	.section	.note.GNU-stack,"",@progbits
 	.section	.note.gnu.property,"a"
