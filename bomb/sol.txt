@@ -1,1 +1,2 @@
 1: Border relations with Canada have never been better.
+2: 1 2 4 8 16 32
