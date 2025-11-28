@@ -382,19 +382,19 @@ Disassembly of section .text:
 
 0000000000400f43 <phase_3>:
   400f43:	48 83 ec 18          	sub    $0x18,%rsp
-  400f47:	48 8d 4c 24 0c       	lea    0xc(%rsp),%rcx
-  400f4c:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx
-  400f51:	be cf 25 40 00       	mov    $0x4025cf,%esi
+  400f47:	48 8d 4c 24 0c       	lea    0xc(%rsp),%rcx # rsp + 12 -> b
+  400f4c:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx # rsp + 8 -> a
+  400f51:	be cf 25 40 00       	mov    $0x4025cf,%esi # %d %d
   400f56:	b8 00 00 00 00       	mov    $0x0,%eax
-  400f5b:	e8 90 fc ff ff       	call   400bf0 <__isoc99_sscanf@plt>
+  400f5b:	e8 90 fc ff ff       	call   400bf0 <__isoc99_sscanf@plt> # read a, b
   400f60:	83 f8 01             	cmp    $0x1,%eax
   400f63:	7f 05                	jg     400f6a <phase_3+0x27>
   400f65:	e8 d0 04 00 00       	call   40143a <explode_bomb>
-  400f6a:	83 7c 24 08 07       	cmpl   $0x7,0x8(%rsp)
+  400f6a:	83 7c 24 08 07       	cmpl   $0x7,0x8(%rsp) # 7 <= a
   400f6f:	77 3c                	ja     400fad <phase_3+0x6a>
-  400f71:	8b 44 24 08          	mov    0x8(%rsp),%eax
-  400f75:	ff 24 c5 70 24 40 00 	jmp    *0x402470(,%rax,8)
-  400f7c:	b8 cf 00 00 00       	mov    $0xcf,%eax
+  400f71:	8b 44 24 08          	mov    0x8(%rsp),%eax # eax = a
+  400f75:	ff 24 c5 70 24 40 00 	jmp    *0x402470(,%rax,8) # 8a
+  400f7c:	b8 cf 00 00 00       	mov    $0xcf,%eax # eax = 0xcf
   400f81:	eb 3b                	jmp    400fbe <phase_3+0x7b>
   400f83:	b8 c3 02 00 00       	mov    $0x2c3,%eax
   400f88:	eb 34                	jmp    400fbe <phase_3+0x7b>
