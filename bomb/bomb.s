@@ -420,15 +420,15 @@ Disassembly of section .text:
 
 0000000000400fce <func4>:
   400fce:	48 83 ec 08          	sub    $0x8,%rsp
-  400fd2:	89 d0                	mov    %edx,%eax
-  400fd4:	29 f0                	sub    %esi,%eax
-  400fd6:	89 c1                	mov    %eax,%ecx
-  400fd8:	c1 e9 1f             	shr    $0x1f,%ecx
-  400fdb:	01 c8                	add    %ecx,%eax
-  400fdd:	d1 f8                	sar    $1,%eax
-  400fdf:	8d 0c 30             	lea    (%rax,%rsi,1),%ecx
+  400fd2:	89 d0                	mov    %edx,%eax # eax = 14
+  400fd4:	29 f0                	sub    %esi,%eax # eax = 14
+  400fd6:	89 c1                	mov    %eax,%ecx # ecx = eax = 14
+  400fd8:	c1 e9 1f             	shr    $0x1f,%ecx # ecx >> 31
+  400fdb:	01 c8                	add    %ecx,%eax # eax + ecx = 14 + eax >> 31 (Logic)
+  400fdd:	d1 f8                	sar    $1,%eax # eax>>1 (Arithmetic)
+  400fdf:	8d 0c 30             	lea    (%rax,%rsi,1),%ecx # ecx = rax + rsi
   400fe2:	39 f9                	cmp    %edi,%ecx
-  400fe4:	7e 0c                	jle    400ff2 <func4+0x24>
+  400fe4:	7e 0c                	jle    400ff2 <func4+0x24> # ecx <= edi
   400fe6:	8d 51 ff             	lea    -0x1(%rcx),%edx
   400fe9:	e8 e0 ff ff ff       	call   400fce <func4>
   400fee:	01 c0                	add    %eax,%eax
@@ -438,29 +438,44 @@ Disassembly of section .text:
   400ff9:	7d 0c                	jge    401007 <func4+0x39>
   400ffb:	8d 71 01             	lea    0x1(%rcx),%esi
   400ffe:	e8 cb ff ff ff       	call   400fce <func4>
-  401003:	8d 44 00 01          	lea    0x1(%rax,%rax,1),%eax
+  401003:	8d 44 00 01          	lea    0x1(%rax,%rax,1),%eax # 2* rax + 1
   401007:	48 83 c4 08          	add    $0x8,%rsp
   40100b:	c3                   	ret
 
+  // edx = 14, esi = 0, edi = a
+ int func4(int edi, int esi, int edx){
+    int mid = l + ((r-l)>>1);
+    if(mid <= a){
+        if(mid==a){
+            return 0;
+        }
+        l = mid + 1;
+        return 2*func4(a, l, r) + 1;
+    }else{
+        r = mid - 1;
+        return 2*func4(a, l, r);
+    }
+}
+
 000000000040100c <phase_4>:
   40100c:	48 83 ec 18          	sub    $0x18,%rsp
-  401010:	48 8d 4c 24 0c       	lea    0xc(%rsp),%rcx
-  401015:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx
-  40101a:	be cf 25 40 00       	mov    $0x4025cf,%esi
+  401010:	48 8d 4c 24 0c       	lea    0xc(%rsp),%rcx # b
+  401015:	48 8d 54 24 08       	lea    0x8(%rsp),%rdx # a
+  40101a:	be cf 25 40 00       	mov    $0x4025cf,%esi # "%d %d"
   40101f:	b8 00 00 00 00       	mov    $0x0,%eax
   401024:	e8 c7 fb ff ff       	call   400bf0 <__isoc99_sscanf@plt>
-  401029:	83 f8 02             	cmp    $0x2,%eax
+  401029:	83 f8 02             	cmp    $0x2,%eax # "Input 2 integers"
   40102c:	75 07                	jne    401035 <phase_4+0x29>
-  40102e:	83 7c 24 08 0e       	cmpl   $0xe,0x8(%rsp)
+  40102e:	83 7c 24 08 0e       	cmpl   $0xe,0x8(%rsp) # a <= 14
   401033:	76 05                	jbe    40103a <phase_4+0x2e>
   401035:	e8 00 04 00 00       	call   40143a <explode_bomb>
-  40103a:	ba 0e 00 00 00       	mov    $0xe,%edx
-  40103f:	be 00 00 00 00       	mov    $0x0,%esi
-  401044:	8b 7c 24 08          	mov    0x8(%rsp),%edi
+  40103a:	ba 0e 00 00 00       	mov    $0xe,%edx # 14
+  40103f:	be 00 00 00 00       	mov    $0x0,%esi # 0
+  401044:	8b 7c 24 08          	mov    0x8(%rsp),%edi # a
   401048:	e8 81 ff ff ff       	call   400fce <func4>
-  40104d:	85 c0                	test   %eax,%eax
+  40104d:	85 c0                	test   %eax,%eax # eax == 1
   40104f:	75 07                	jne    401058 <phase_4+0x4c>
-  401051:	83 7c 24 0c 00       	cmpl   $0x0,0xc(%rsp)
+  401051:	83 7c 24 0c 00       	cmpl   $0x0,0xc(%rsp) # b==0
   401056:	74 05                	je     40105d <phase_4+0x51>
   401058:	e8 dd 03 00 00       	call   40143a <explode_bomb>
   40105d:	48 83 c4 18          	add    $0x18,%rsp
@@ -474,31 +489,43 @@ Disassembly of section .text:
   401071:	00 00
   401073:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
   401078:	31 c0                	xor    %eax,%eax
+  // Get String of 6
   40107a:	e8 9c 02 00 00       	call   40131b <string_length>
   40107f:	83 f8 06             	cmp    $0x6,%eax
+  
   401082:	74 4e                	je     4010d2 <phase_5+0x70>
   401084:	e8 b1 03 00 00       	call   40143a <explode_bomb>
+  
   401089:	eb 47                	jmp    4010d2 <phase_5+0x70>
+  
+  // Loop
   40108b:	0f b6 0c 03          	movzbl (%rbx,%rax,1),%ecx
   40108f:	88 0c 24             	mov    %cl,(%rsp)
   401092:	48 8b 14 24          	mov    (%rsp),%rdx
-  401096:	83 e2 0f             	and    $0xf,%edx
-  401099:	0f b6 92 b0 24 40 00 	movzbl 0x4024b0(%rdx),%edx
+  401096:	83 e2 0f             	and    $0xf,%edx // Get 0~15
+  401099:	0f b6 92 b0 24 40 00 	movzbl 0x4024b0(%rdx),%edx // maduiersnfotvbylSo you think you can stop the bomb with ctrl-c, do you?
   4010a0:	88 54 04 10          	mov    %dl,0x10(%rsp,%rax,1)
+  
+  // Loop to 6
   4010a4:	48 83 c0 01          	add    $0x1,%rax
   4010a8:	48 83 f8 06          	cmp    $0x6,%rax
   4010ac:	75 dd                	jne    40108b <phase_5+0x29>
+  // Loop End
+  
   4010ae:	c6 44 24 16 00       	movb   $0x0,0x16(%rsp)
-  4010b3:	be 5e 24 40 00       	mov    $0x40245e,%esi
+  4010b3:	be 5e 24 40 00       	mov    $0x40245e,%esi // flyers 9 15 14 5 6 7 I O N E F G
   4010b8:	48 8d 7c 24 10       	lea    0x10(%rsp),%rdi
   4010bd:	e8 76 02 00 00       	call   401338 <strings_not_equal>
   4010c2:	85 c0                	test   %eax,%eax
   4010c4:	74 13                	je     4010d9 <phase_5+0x77>
   4010c6:	e8 6f 03 00 00       	call   40143a <explode_bomb>
+  
   4010cb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
   4010d0:	eb 07                	jmp    4010d9 <phase_5+0x77>
+  
   4010d2:	b8 00 00 00 00       	mov    $0x0,%eax
   4010d7:	eb b2                	jmp    40108b <phase_5+0x29>
+  
   4010d9:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
   4010de:	64 48 33 04 25 28 00 	xor    %fs:0x28,%rax
   4010e5:	00 00
