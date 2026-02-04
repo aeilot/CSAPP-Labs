@@ -21,16 +21,20 @@ int block_bit = -1;
 long long block_size = -1;
 bool verboseMode = false;
 
+int global_timer = 0;
+
 int memory_bit = 64; // Assuming 64-bit addresses
 int tag_bit = 0; // Tag bits
 
 // Cache Line Structure
-struct CacheLine {
+typedef struct CacheLine {
     bool valid;
-    bool dirty;
     long long tag;
-    long long cache;
-};
+    /*
+        Need LRU stamp to implement LRU eviction policy
+    */
+    int lru_counter;
+} CacheLine;
 
 // Parse Line Structure
 long long getTag(long long address) {
@@ -48,7 +52,7 @@ long long getBlockOffset(long long address) {
 }
 
 // Data Structures
-struct CacheLine** cache = NULL;
+CacheLine** cache = NULL;
 
 // HELPER FUNCTIONS
 void printUsage(char* argv[]) {
@@ -120,23 +124,81 @@ void handleArgs(int argc, char** argv){
 // CACHE SIMULATION FUNCTIONS
 void initCache() {
     // Initialize cache data structures
-
+    cache = (CacheLine**) malloc(sizeof(CacheLine*) * sets);
+    for(int i = 0; i<sets; i++){
+        cache[i] = (CacheLine*) calloc(associativity, sizeof(CacheLine));
+        /*
+            malloc needs to be initialized
+            otherwise the valid bits may contain garbage values
+        */
+        // Alternatively, we could use malloc + zero-initialize
+        // cache[i] = (CacheLine*) malloc(sizeof(CacheLine) * associativity);
+        // cache[i]->valid = false;
+        // cache[i]->tag = 0;
+        // cache[i]->lru_stamp = 0;
+    }   
 }
 
 void freeCache() {
     // Free allocated memory for cache
+    for(int i = 0; i<sets; i++) free(cache[i]);
+    free(cache);
 }
 
 void loadData(long long address, int size) {
     // Simulate accessing data at the given address
+int s = getSetIndex(address);
+    long long t = getTag(address);
+    global_timer++;
+
+    for (int i = 0; i < associativity; i++) {
+        if (cache[s][i].valid && cache[s][i].tag == t) {
+            hit_count++;
+            cache[s][i].lru_counter = global_timer;
+            if (verboseMode) printf(" hit");
+            return;
+        }
+    }
+
+    miss_count++;
+    if (verboseMode) printf(" miss");
+
+    for (int i = 0; i < associativity; i++) {
+        if (!cache[s][i].valid) {
+            cache[s][i].valid = true;
+            cache[s][i].tag = t;
+            cache[s][i].lru_counter = global_timer; 
+            return;
+        }
+    }
+
+    eviction_count++;
+    if (verboseMode) printf(" eviction");
+
+    int victim_index = 0;
+    int min_lru = cache[s][0].lru_counter;
+
+    for (int i = 1; i < associativity; i++) {
+        if (cache[s][i].lru_counter < min_lru) {
+            min_lru = cache[s][i].lru_counter;
+            victim_index = i;
+        }
+    }
+
+    cache[s][victim_index].tag = t;
+    cache[s][victim_index].lru_counter = global_timer;
 }
 
 void storeData(long long address, int size) {
     // Simulate storing data at the given address
+    loadData(address, size);
 }
 
 void modifyData(long long address, int size) {
     // Simulate modifying data at the given address
+    loadData(address, size);
+    hit_count++;
+    if (verboseMode) printf(" hit\n");
 }
 
 // MAIN FUNCTION
@@ -151,11 +213,15 @@ int main(int argc, char** argv)
         printf("Error opening file: %s\n", fileName);
         exit(1);
     }
-    while (!feof(traceFile)) {
-        char operation;
-        long long address;
-        int size;
-        fscanf(traceFile, "%c %llx,%d", &operation, &address, &size);
+    char operation;
+    long long address;
+    int size;
+    /*
+        fscanf does not skip spaces before %c, so we add a space before %c in the format string
+        !feof (traceFile) does not work correctly here because fscanf may fail to read a line
+        but we are not at the end of the file yet. Instead, we check the return value of fscanf.
+    */
+    while (fscanf(traceFile, " %c %llx,%d", &operation, &address, &size) == 3) {
         switch (operation) {
             case 'L':
                 // Handle load operation
