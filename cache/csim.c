@@ -147,7 +147,7 @@ void freeCache() {
 
 void loadData(long long address, int size) {
     // Simulate accessing data at the given address
-int s = getSetIndex(address);
+    int s = getSetIndex(address);
     long long t = getTag(address);
     global_timer++;
 
