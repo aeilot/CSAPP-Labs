@@ -8,65 +8,135 @@
  * May not be used, modified, or copied without permission.
  */
 
+/* 
+ * Perfindices below the threshhold receive a score of zero
+ */
+#define PERF_THRESHHOLD 50.0
+#define CHECKPOINT_THRESHOLD 40.0
+
 /*
  * This is the default path where the driver will look for the
  * default tracefiles. You can override it at runtime with the -t flag.
  */
-#define TRACEDIR "/afs/cs/project/ics2/im/labs/malloclab/traces/"
+#define TRACEDIR "./traces/"
 
 /*
  * This is the list of default tracefiles in TRACEDIR that the driver
  * will use for testing. Modify this if you want to add or delete
- * traces from the driver's test suite. For example, if you don't want
- * your students to implement realloc, you can delete the last two
- * traces.
+ * traces from the driver's test suite.
  */
+// #define DEFAULT_TRACEFILES \
+//     "alaska.rep", \
+//     "amptjp.rep", \
+//     "bash.rep", \
+//     "boat.rep",\
+//     "cccp.rep", \
+//     "chrome.rep", \
+//     "coalesce-big.rep",  \
+//     "coalescing-bal.rep", \
+//     "corners.rep", \
+//     "cp-decl.rep", \
+//     "exhaust.rep", \
+//     "firefox.rep", \
+//     "firefox-reddit.rep", \
+//     "hostname.rep", \
+//     "login.rep", \
+//     "lrucd.rep", \
+//     "ls.rep", \
+//     "malloc.rep", \
+//     "malloc-free.rep", \
+//     "needle.rep", \
+//     "nlydf.rep", \
+//     "perl.rep", \
+//     "qyqyc.rep", \
+//     "random.rep", \
+//     "random2.rep", \
+//     "rm.rep", \
+//     "rulsr.rep",\
+//     "seglist.rep", \
+//     "short2.rep"
 #define DEFAULT_TRACEFILES \
-  "amptjp-bal.rep",\
-  "cccp-bal.rep",\
-  "cp-decl-bal.rep",\
-  "expr-bal.rep",\
-  "coalescing-bal.rep",\
-  "random-bal.rep",\
-  "random2-bal.rep",\
-  "binary-bal.rep",\
-  "binary2-bal.rep",\
-  "realloc-bal.rep",\
-  "realloc2-bal.rep"
+    "alaska.rep", \
+    "amptjp.rep", \
+    "bash.rep", \
+    "boat.rep",\
+    "boat-plus.rep", \
+    "binary2-bal.rep",\
+    "cccp.rep", \
+    "cccp-bal.rep", \
+    "chrome.rep", \
+    "coalesce-big.rep",  \
+    "coalescing-bal.rep", \
+    "corners.rep", \
+    "cp-decl.rep", \
+    "exhaust.rep", \
+    "expr-bal.rep", \
+    "firefox-reddit2.rep", \
+    "freeciv.rep", \
+    "malloc.rep", \
+    "malloc-free.rep", \
+    "perl.rep", \
+    "random.rep", \
+    "random2.rep", \
+    "realloc.rep"
 
 /*
- * This constant gives the estimated performance of the libc malloc
- * package using our traces on some reference system, typically the
- * same kind of system the students use. Its purpose is to cap the
- * contribution of throughput to the performance index. Once the
- * students surpass the AVG_LIBC_THRUPUT, they get no further benefit
- * to their score.  This deters students from building extremely fast,
- * but extremely stupid malloc packages.
+ * If this is uncommented, then use "alt grading", in which
+ * final_score = min(util_score, perf_score), which prevents
+ * an unbalanced allocator from getting a good score. Alt
+ * grading ignores UTIL_WEIGHT, as both util and perf are graded
+ * on a scale from 0 to 100.
  */
-#define AVG_LIBC_THRUPUT      600E3  /* 600 Kops/sec */
+//#define ALT_GRADING
 
- /* 
+
+/*
+ * Students get 0 points for this point or below (ops / sec)
+ */
+#define MIN_SPEED       4000E3
+
+
+/*
+ * Students get 0 points for this allocation fraction or below
+ */
+#define MIN_SPACE       0.70
+
+
+/* 
+ * Students can get more points for building faster allocators, up to
+ * this point (in ops / sec)
+ */
+#define MAX_SPEED       14000E3
+
+/* 
+ * Students can get more points for building more efficient allocators,
+ * up to this point (1 is perfect).
+ */
+#define MAX_SPACE       0.90
+
+ /*
   * This constant determines the contributions of space utilization
   * (UTIL_WEIGHT) and throughput (1 - UTIL_WEIGHT) to the performance
-  * index.  
+  * index.
   */
+
 #define UTIL_WEIGHT .60
 
-/* 
- * Alignment requirement in bytes (either 4 or 8) 
+/*
+ * Alignment requirement in bytes (either 4 or 8)
  */
-#define ALIGNMENT 8  
+#define ALIGNMENT 8
 
-/* 
- * Maximum heap size in bytes 
+/*
+ * Maximum heap size in bytes
  */
-#define MAX_HEAP (20*(1<<20))  /* 20 MB */
+#define MAX_HEAP (100*(1<<20))  /* 100 MB */
 
 /*****************************************************************************
  * Set exactly one of these USE_xxx constants to "1" to select a timing method
  *****************************************************************************/
-#define USE_FCYC   0   /* cycle counter w/K-best scheme (x86 & Alpha only) */
+#define USE_FCYC   1   /* cycle counter w/K-best scheme (x86 & Alpha only) */
 #define USE_ITIMER 0   /* interval timer (any Unix box) */
-#define USE_GETTOD 1   /* gettimeofday (any Unix box) */
+#define USE_GETTOD 0   /* gettimeofday (any Unix box) */
 
 #endif /* __CONFIG_H */
