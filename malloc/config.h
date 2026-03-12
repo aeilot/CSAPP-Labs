@@ -135,8 +135,14 @@
 /*****************************************************************************
  * Set exactly one of these USE_xxx constants to "1" to select a timing method
  *****************************************************************************/
-#define USE_FCYC   1   /* cycle counter w/K-best scheme (x86 & Alpha only) */
+#if defined(__i386__) || defined(__x86_64__) || defined(__aarch64__) || defined(__arm64__)
+#define USE_FCYC   1   /* cycle counter w/K-best scheme (x86, Alpha, AArch64) */
 #define USE_ITIMER 0   /* interval timer (any Unix box) */
 #define USE_GETTOD 0   /* gettimeofday (any Unix box) */
+#else
+#define USE_FCYC   0   /* cycle counter not available on this platform */
+#define USE_ITIMER 0   /* interval timer (any Unix box) */
+#define USE_GETTOD 1   /* gettimeofday (any Unix box) */
+#endif
 
 #endif /* __CONFIG_H */

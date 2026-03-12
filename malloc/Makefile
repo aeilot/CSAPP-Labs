@@ -2,8 +2,11 @@
 # Makefile for the malloc lab driver
 #
 CC = gcc
-#CFLAGS = -Wall -Wextra -Werror -O3 -g -std=gnu99 -DDRIVER -Wno-unused-function -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-comment
-CFLAGS = -Wall -Wextra -O3 -g -std=gnu99 -DDRIVER -Wno-unused-function -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-comment
+CFLAGS = -Wall -Wextra -O3 -g -std=gnu99 -DDRIVER -Wno-unused-function -Wno-unused-parameter -Wno-comment
+
+# -Wno-unused-but-set-variable is supported by GCC but not Apple Clang.
+# Detect and add it only if the compiler supports it.
+CFLAGS += $(shell $(CC) -Wno-unused-but-set-variable -x c -c /dev/null -o /dev/null 2>/dev/null && echo -Wno-unused-but-set-variable)
 
 OBJS = mdriver.o mm.o memlib.o fsecs.o fcyc.o clock.o ftimer.o 
 

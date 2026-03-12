@@ -1,6 +1,6 @@
 /* 
  * clock.c - Routines for using the cycle counters on x86, 
- *           Alpha, and Sparc boxes.
+ *           Alpha, AArch64, and Sparc boxes.
  * 
  * Copyright (c) 2002, R. Bryant and D. O'Hallaron, All rights reserved.
  * May not be used, modified, or copied without permission.
@@ -13,13 +13,17 @@
 #include <sys/times.h>
 #include "clock.h"
 
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+
 
 /******************************************************* 
  * Machine dependent functions 
  *
- * Note: the constants __i386__ and  __alpha
- * are set by GCC when it calls the C preprocessor
- * You can verify this for yourself using gcc -v.
+ * Note: the constants __i386__, __x86_64__, __alpha,
+ * __aarch64__, and __arm64__ are set by the compiler
+ * when it calls the C preprocessor.
  *******************************************************/
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -71,6 +75,41 @@ double get_counter()
     return result;
 }
 /* $end x86cyclecounter */
+
+#elif defined(__aarch64__) || defined(__arm64__)
+/*******************************************************
+ * AArch64 versions of start_counter() and get_counter()
+ *
+ * Uses the ARM virtual count register (cntvct_el0)
+ * accessible from userspace on AArch64.
+ *******************************************************/
+
+static unsigned long long cyc_start = 0;
+
+/* Read the AArch64 virtual cycle counter */
+static inline unsigned long long read_cntvct(void)
+{
+    unsigned long long val;
+    asm volatile("mrs %0, cntvct_el0" : "=r" (val));
+    return val;
+}
+
+/* Record the current value of the cycle counter. */
+void start_counter()
+{
+    cyc_start = read_cntvct();
+}
+
+/* Return the number of cycles since the last call to start_counter. */
+double get_counter()
+{
+    unsigned long long now = read_cntvct();
+    double result = (double)(now - cyc_start);
+    if (result < 0) {
+        fprintf(stderr, "Error: counter returns neg value: %.0f\n", result);
+    }
+    return result;
+}
 
 #elif defined(__alpha)
 
@@ -181,23 +220,50 @@ double ovhd()
 }
 
 /* $begin mhz */
-/* Get the clock rate from /proc */
+/* Get the clock rate from /proc or sysctl */
 double mhz_full(int verbose, int sleeptime __attribute__((unused)))
 {
-    static char buf[2048];
-
-    FILE *fp = fopen("/proc/cpuinfo", "r");
     double mhz = 0.0;
 
-    while (fgets(buf, 2048, fp)) {
-        if (strstr(buf, "cpu MHz")) {
-            sscanf(buf, "cpu MHz\t: %lf", &mhz);
-            break;
-        }
+#if defined(__APPLE__)
+    /* macOS: use sysctl to get CPU frequency.
+     * On Apple Silicon, hw.cpufrequency may not be available,
+     * so fall back to the counter frequency for cntvct_el0. */
+    uint64_t freq = 0;
+    size_t size = sizeof(freq);
+    if (sysctlbyname("hw.cpufrequency", &freq, &size, NULL, 0) == 0) {
+        mhz = (double)freq / 1e6;
     }
-    fclose(fp);
-    /* Get mhz from vm could be different, so set it static */
-    mhz = 2000;
+#if defined(__aarch64__) || defined(__arm64__)
+    /* On Apple Silicon, hw.cpufrequency is often unavailable.
+     * Use cntfrq_el0 (the ARM counter frequency) instead, since
+     * our cycle counter reads cntvct_el0 which ticks at this rate. */
+    if (mhz == 0.0) {
+        unsigned long long cntfrq;
+        asm volatile("mrs %0, cntfrq_el0" : "=r" (cntfrq));
+        mhz = (double)cntfrq / 1e6;
+    }
+#endif
+    /* Final fallback */
+    if (mhz == 0.0)
+        mhz = 2000;
+#else
+    /* Linux: read from /proc/cpuinfo */
+    static char buf[2048];
+    FILE *fp = fopen("/proc/cpuinfo", "r");
+    if (fp) {
+        while (fgets(buf, 2048, fp)) {
+            if (strstr(buf, "cpu MHz")) {
+                sscanf(buf, "cpu MHz\t: %lf", &mhz);
+                break;
+            }
+        }
+        fclose(fp);
+    }
+    if (mhz == 0.0)
+        mhz = 2000;
+#endif
+
     if (verbose) 
         printf("Processor clock rate ~= %.1f MHz\n", mhz);
     return mhz;

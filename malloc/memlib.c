@@ -25,13 +25,16 @@ static char *mem_max_addr;
  * mem_init - initialize the memory system model
  */
 void mem_init(void){
-	int dev_zero = open("/dev/zero", O_RDWR);
-	heap = mmap((void *)0x800000000, /* suggested start*/
+	heap = mmap(NULL,			    /* let OS choose address */
 			MAX_HEAP,				/* length */
-			PROT_WRITE,				/* permissions */
-			MAP_PRIVATE,			/* private or shared? */
-			dev_zero,				/* fd */
-			0);						/* offset (dunno) */
+			PROT_READ | PROT_WRITE,	/* permissions */
+			MAP_PRIVATE | MAP_ANONYMOUS, /* private anonymous mapping */
+			-1,						/* fd (unused with MAP_ANONYMOUS) */
+			0);						/* offset */
+	if (heap == MAP_FAILED) {
+		fprintf(stderr, "ERROR: mem_init mmap failed: %s\n", strerror(errno));
+		exit(1);
+	}
 	mem_max_addr = heap + MAX_HEAP;
 	mem_brk = heap;					/* heap is empty initially */
 }
@@ -58,9 +61,7 @@ void mem_reset_brk(){
 void *mem_sbrk(int incr) {
 	char *old_brk = mem_brk;
 
-    // call sbrk() in an attempt to have similar semantics as a real allocator.
-	if ( (incr < 0) || ((mem_brk + incr) > mem_max_addr) ||
-            sbrk(incr) == (void *) -1) {
+	if ( (incr < 0) || ((mem_brk + incr) > mem_max_addr)) {
 		errno = ENOMEM;
 		fprintf(stderr, "ERROR: mem_sbrk failed. Ran out of memory...\n");
 		return (void *)-1;
