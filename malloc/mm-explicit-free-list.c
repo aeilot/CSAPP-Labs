@@ -76,8 +76,7 @@
 
 /* Global variables */
 static char *heap_listp = 0;  /* Pointer to first block */  
-#define FREE_LISTS_N 16
-static char *free_lists[FREE_LISTS_N];
+static char *free_list = 0; /* Pointer to free list */
 
 static void* extend_heap(size_t words);
 static void* coalesce(char* bp);
@@ -87,35 +86,12 @@ static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void set_prev_alloc(void *bp);
 static void clear_prev_alloc(void *bp);
-static size_t get_list(size_t size);
-
-static size_t get_list(size_t size) {
-    if (size <= 32) return 0;
-    else if (size <= 64) return 1;
-    else if (size <= 128) return 2;
-    else if (size <= 256) return 3;
-    else if (size <= 512) return 4;
-    else if (size <= 1024) return 5;
-    else if (size <= 2048) return 6;
-    else if (size <= 4096) return 7;
-    else if (size <= 8192) return 8;
-    else if (size <= 16384) return 9;
-    else if (size <= 32768) return 10;
-    else if (size <= 65536) return 11;
-    else if (size <= 131072) return 12;
-    else if (size <= 262144) return 13;
-    else if (size <= 524288) return 14;
-    else if (size <= 1048576) return 15;
-    else return FREE_LISTS_N - 1;
-}
 
 /*
  * Initialize: return -1 on error, 0 on success.
  */
 int mm_init(void) {
-    for(int i = 0; i<FREE_LISTS_N; i++){
-        free_lists[i] = 0;
-    }
+    free_list = 0;
     heap_listp = 0;
     if((heap_listp = mem_sbrk(4*WSIZE))==(void*)-1) return -1;
     // Alignment
@@ -263,7 +239,6 @@ static void delete_node(char* bp) {
 
     char* nxt = GET_NEXT(bp);
     char* prev = GET_PREV(bp);
-    size_t idx = get_list(GET_SIZE(HDRP(bp)));
 
     if (nxt != NULL) {
         SET_PREV(nxt, prev);
@@ -272,23 +247,22 @@ static void delete_node(char* bp) {
     if (prev != NULL) {
         SET_NEXT(prev, nxt);
     } else {
-        free_lists[idx] = nxt;
+        free_list = nxt;
     }
 }
 
 static void insert_node(char* bp) {
     if(bp == NULL) return;
-    size_t idx = get_list(GET_SIZE(HDRP(bp)));
-    if(free_lists[idx] == 0) {
-        free_lists[idx] = bp;
+    if(free_list == 0) {
+        free_list = bp;
         SET_PREV(bp, NULL);
         SET_NEXT(bp, NULL);
         return;
     }
-    SET_NEXT(bp, free_lists[idx]);
-    SET_PREV(free_lists[idx], bp);
+    SET_NEXT(bp, free_list);
+    SET_PREV(free_list, bp);
     SET_PREV(bp, NULL);
-    free_lists[idx] = bp;
+    free_list = bp;
 }
 
 static void* coalesce(char* bp) {
@@ -297,9 +271,8 @@ static void* coalesce(char* bp) {
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
-    delete_node(bp);
-
     if (prev_alloc && next_alloc) {
+        return bp;
     }
 
     else if (prev_alloc && !next_alloc) {
@@ -312,9 +285,9 @@ static void* coalesce(char* bp) {
     else if (!prev_alloc && next_alloc) {
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         size_t pp_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
-        delete_node(PREV_BLKP(bp));
         PUT(FTRP(bp), PACK_F(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, pp_alloc, 0));
+        delete_node(bp);
         bp = PREV_BLKP(bp);
     }
 
@@ -322,14 +295,12 @@ static void* coalesce(char* bp) {
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + 
             GET_SIZE(HDRP(NEXT_BLKP(bp)));
         size_t pp_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
-        delete_node(PREV_BLKP(bp));
-        delete_node(NEXT_BLKP(bp)); 
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, pp_alloc, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK_F(size, 0));
+        delete_node(bp);
+        delete_node(NEXT_BLKP(bp)); 
         bp = PREV_BLKP(bp);
     }
-
-    insert_node(bp);
 
     return bp;
 }
@@ -363,11 +334,11 @@ void mm_checkheap(int lineno) {
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));   
-    delete_node(bp);
 
     if ((csize - asize) >= (3*DSIZE)) { 
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
         PUT(HDRP(bp), PACK(asize, alloc_p, 1));
+        delete_node(bp);
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize-asize, 1, 0));
         PUT(FTRP(bp), PACK_F(csize-asize, 0));
@@ -376,6 +347,7 @@ static void place(void *bp, size_t asize)
     else { 
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
         PUT(HDRP(bp), PACK(csize, alloc_p, 1));
+        delete_node(bp);
         set_prev_alloc(NEXT_BLKP(bp));
     }
 }
@@ -388,14 +360,9 @@ static void *find_fit(size_t asize)
     /* First-fit search */
     void *bp;
 
-    size_t idx = get_list(asize);
-
-    for(int i = idx; i< FREE_LISTS_N; i++){
-        if(free_lists[i] == 0) continue;
-        for (bp = free_lists[i]; bp!=NULL; bp = GET_NEXT(bp)) {
-            if (asize <= GET_SIZE(HDRP(bp))) {
-                return bp;
-            }
+    for (bp = free_list; bp!=NULL; bp = GET_NEXT(bp)) {
+        if (asize <= GET_SIZE(HDRP(bp))) {
+            return bp;
         }
     }
     return NULL; /* No fit */
