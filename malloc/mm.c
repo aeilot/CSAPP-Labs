@@ -68,7 +68,8 @@
 
 /* Explicit Free List Helper Functions */
 #define PREV(bp) ((char *)(bp))
-#define NEXT(bp) ((char *)(bp) + WSIZE)
+#define NEXT(bp) ((char *)(bp) + DSIZE)
+// A 64-bit pointer takes 8 bytes.
 
 #define GET_PREV(bp) (*(char **)(PREV(bp)))
 #define GET_NEXT(bp) (*(char **)(NEXT(bp)))
@@ -93,6 +94,8 @@ static void clear_prev_alloc(void *bp);
  * Initialize: return -1 on error, 0 on success.
  */
 int mm_init(void) {
+    free_list = 0;
+    heap_listp = 0;
     if((heap_listp = mem_sbrk(4*WSIZE))==(void*)-1) return -1;
     // Alignment
     PUT(heap_listp, 0);
@@ -123,8 +126,8 @@ void *malloc (size_t size) {
     if (size == 0)
         return NULL;
 
-    if (size <= DSIZE)                                          
-        asize = 2*DSIZE;                                        
+    if (size <= 2*DSIZE)                                          
+        asize = 3*DSIZE;                                        
     else
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE); 
 
@@ -151,9 +154,10 @@ void free (void *ptr) {
     size_t size = GET_SIZE(HDRP(ptr));
     PUT(HDRP(ptr), PACK(size, prev_a, 0));
     PUT(FTRP(ptr), PACK_F(size, 0));
-    set_prev_alloc(NEXT_BLKP(ptr));
-    if(size >= 4*WSIZE) {
+    clear_prev_alloc(NEXT_BLKP(ptr));
+    if(size >= 6*WSIZE) {
         insert_node(ptr);
+        coalesce(ptr);
     }
 }
 
@@ -220,32 +224,33 @@ static void* extend_heap(size_t words){
     char* bp;
     size_t size;
     size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
-    if(size < 4*WSIZE) size = 4*WSIZE;
+    if(size < 6*WSIZE) size = 6*WSIZE;
     if((bp = mem_sbrk(size)) == (void*)-1) return NULL;
     // mem_sbrk gets the old program break, a pointer pointing to the bottom of the heap. (it's not the old epilogue)
     size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     PUT(HDRP(bp), PACK(size, prev_alloc, 0));
     PUT(FTRP(bp), PACK_F(size, 0));
+    SET_NEXT(bp, NULL);
+    SET_PREV(bp, NULL);
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 0, 1));
+    insert_node(bp);
     return coalesce(bp);
 }
 
-static void delete_node(char* bp){
-    if(bp == NULL) return;
+static void delete_node(char* bp) {
+    if (bp == NULL) return;
 
-    char* nxt = NEXT(bp);
-    char* prev = PREV(bp);
+    char* nxt = GET_NEXT(bp);
+    char* prev = GET_PREV(bp);
 
-    if(nxt == NULL && prev == NULL) {
-        free_list = 0;
-    } else if(nxt != NULL && prev != NULL){
+    if (nxt != NULL) {
         SET_PREV(nxt, prev);
+    }
+
+    if (prev != NULL) {
         SET_NEXT(prev, nxt);
-    } else if(prev != NULL){
-        SET_NEXT(prev, NULL);
     } else {
         free_list = nxt;
-        SET_PREV(nxt, NULL);
     }
 }
 
@@ -264,6 +269,7 @@ static void insert_node(char* bp) {
 }
 
 static void* coalesce(char* bp) {
+    if(bp==NULL) return NULL;
     size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
@@ -332,7 +338,7 @@ static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));   
 
-    if ((csize - asize) >= (4*DSIZE)) { 
+    if ((csize - asize) >= (3*DSIZE)) { 
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
         PUT(HDRP(bp), PACK(asize, alloc_p, 1));
         delete_node(bp);
@@ -343,7 +349,9 @@ static void place(void *bp, size_t asize)
     }
     else { 
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
-        PUT(HDRP(bp), PACK(asize, alloc_p, 1));
+        PUT(HDRP(bp), PACK(csize, alloc_p, 1));
+        delete_node(bp);
+        set_prev_alloc(NEXT_BLKP(bp));
     }
 }
 
@@ -355,7 +363,7 @@ static void *find_fit(size_t asize)
     /* First-fit search */
     void *bp;
 
-    for (bp = free_list; bp!=0; bp = NEXT(bp)) {
+    for (bp = free_list; bp!=NULL; bp = GET_NEXT(bp)) {
         if (asize <= GET_SIZE(HDRP(bp))) {
             return bp;
         }
