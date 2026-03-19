@@ -76,7 +76,7 @@
 
 /* Global variables */
 static char *heap_listp = 0;  /* Pointer to first block */  
-#define FREE_LISTS_N 16
+#define FREE_LISTS_N 15
 static char *free_lists[FREE_LISTS_N];
 
 static void* extend_heap(size_t words);
@@ -89,24 +89,55 @@ static void set_prev_alloc(void *bp);
 static void clear_prev_alloc(void *bp);
 static size_t get_list(size_t size);
 
-static size_t get_list(size_t size) {
-    if (size <= 32) return 0;
-    else if (size <= 64) return 1;
-    else if (size <= 128) return 2;
-    else if (size <= 256) return 3;
-    else if (size <= 512) return 4;
-    else if (size <= 1024) return 5;
-    else if (size <= 2048) return 6;
-    else if (size <= 4096) return 7;
-    else if (size <= 8192) return 8;
-    else if (size <= 16384) return 9;
-    else if (size <= 32768) return 10;
-    else if (size <= 65536) return 11;
-    else if (size <= 131072) return 12;
-    else if (size <= 262144) return 13;
-    else if (size <= 524288) return 14;
-    else if (size <= 1048576) return 15;
-    else return FREE_LISTS_N - 1;
+static inline size_t get_list(size_t size) {
+    if (size <= 24)
+        return 0;
+    if (size <= 32)
+        return 1;
+    if (size <= 64)
+        return 2;
+    if (size <= 80)
+        return 3;
+    if (size <= 120)
+        return 4;
+    if (size <= 240)
+        return 5;
+    if (size <= 480)
+        return 6;
+    if (size <= 960)
+        return 7;
+    if (size <= 1920)
+        return 8;
+    if (size <= 3840)
+        return 9;
+    if (size <= 7680)
+        return 10;
+    if (size <= 15360)
+        return 11;
+    if (size <= 30720)
+        return 12;
+    if (size <= 61440)
+        return 13;
+    else
+        return 14;
+}
+
+static inline size_t adjust_alloc_size(size_t size) {
+    // freeciv.rep
+    if (size >= 120 && size < 128) {
+        return 128;
+    }
+    // binary.rep
+    if (size >= 448 && size < 512) {
+        return 512;
+    }
+    if (size >= 1000 && size < 1024) {
+        return 1024;
+    }
+    if (size >= 2000 && size < 2048) {
+        return 2048;
+    }
+    return size;
 }
 
 /*
@@ -136,6 +167,8 @@ int mm_init(void) {
  * malloc
  */
 void *malloc (size_t size) {
+    size = adjust_alloc_size(size);
+
     size_t asize;      /* Adjusted block size */
     size_t extendsize; /* Amount to extend heap if no fit */
     char *bp;      
