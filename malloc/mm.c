@@ -1,8 +1,7 @@
 /*
  * mm.c
  *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ * Remember, bp is the pointer to the payload. Not the header.
  */
 #include <assert.h>
 #include <stdio.h>
@@ -167,6 +166,7 @@ int mm_init(void) {
  * malloc
  */
 void *malloc (size_t size) {
+    // Hacks
     size = adjust_alloc_size(size);
 
     size_t asize;      /* Adjusted block size */
@@ -180,9 +180,11 @@ void *malloc (size_t size) {
     if (size == 0)
         return NULL;
 
+    // To avoid fragmentation, smallest size for malloc = smallest free block
     if (size <= 2*DSIZE)                                          
         asize = 3*DSIZE;                                        
     else
+    // Round up
         asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE); 
 
     /* Search the free list for a fit */
@@ -204,15 +206,20 @@ void *malloc (size_t size) {
  */
 void free (void *ptr) {
     if(!ptr) return;
+
     size_t prev_a = GET_PREV_ALLOC(HDRP(ptr));
     size_t size = GET_SIZE(HDRP(ptr));
+
+    // Set header and footer as a free block
     PUT(HDRP(ptr), PACK(size, prev_a, 0));
     PUT(FTRP(ptr), PACK_F(size, 0));
+
+    // Always remember to update the info of the next block
     clear_prev_alloc(NEXT_BLKP(ptr));
-    if(size >= 6*WSIZE) {
-        insert_node(ptr);
-        coalesce(ptr);
-    }
+
+    // Insert and coalesce
+    insert_node(ptr);
+    coalesce(ptr);
 }
 
 /*
@@ -277,17 +284,31 @@ static int in_heap(const void *p) {
 static void* extend_heap(size_t words){
     char* bp;
     size_t size;
+
+    // Align memory by 8, so always even words
     size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
+
+    // Minimum size for a block is 6 words (To ensure most blocks can be used as free blocks. Good Recycling!)
     if(size < 6*WSIZE) size = 6*WSIZE;
-    if((bp = mem_sbrk(size)) == (void*)-1) return NULL;
+
+    // Extend Heap
     // mem_sbrk gets the old program break, a pointer pointing to the bottom of the heap. (it's not the old epilogue)
+    if((bp = mem_sbrk(size)) == (void*)-1) return NULL;
+
+    // Inherit info
     size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
+
     PUT(HDRP(bp), PACK(size, prev_alloc, 0));
     PUT(FTRP(bp), PACK_F(size, 0));
+
+    // Set up list
     SET_NEXT(bp, NULL);
     SET_PREV(bp, NULL);
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 0, 1));
+
     insert_node(bp);
+
+    // See if we can coalesce
     return coalesce(bp);
 }
 
@@ -297,7 +318,10 @@ static void delete_node(char* bp) {
     char* nxt = GET_NEXT(bp);
     char* prev = GET_PREV(bp);
     size_t idx = get_list(GET_SIZE(HDRP(bp)));
+    // Get Class ID
+    // Be careful, in this way, we need to CHANGE SIZE after deletion and before insertion.
 
+    // Use separate if branches
     if (nxt != NULL) {
         SET_PREV(nxt, prev);
     }
@@ -305,68 +329,103 @@ static void delete_node(char* bp) {
     if (prev != NULL) {
         SET_NEXT(prev, nxt);
     } else {
+        // Head of the list
         free_lists[idx] = nxt;
     }
 }
 
+// LIFO Linked List
 static void insert_node(char* bp) {
     if(bp == NULL) return;
+
     size_t idx = get_list(GET_SIZE(HDRP(bp)));
+    // Get Class ID
+
+    // New List: We initialize the list
     if(free_lists[idx] == 0) {
         free_lists[idx] = bp;
         SET_PREV(bp, NULL);
         SET_NEXT(bp, NULL);
         return;
     }
+
+    // Existing List
     SET_NEXT(bp, free_lists[idx]);
     SET_PREV(free_lists[idx], bp);
     SET_PREV(bp, NULL);
     free_lists[idx] = bp;
 }
 
+/*
+    Coalescing to reducing fragmentation
+    4 cases
+*/
 static void* coalesce(char* bp) {
     if(bp==NULL) return NULL;
+
     size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
-    delete_node(bp);
-
+    // Case 0
     if (prev_alloc && next_alloc) {
+        // Do nothing because nothing can be done.
+        return bp;
     }
 
-    else if (prev_alloc && !next_alloc) {
+
+    // Always delete before size changes
+    delete_node(bp);
+
+    // Case 1
+    if (prev_alloc && !next_alloc) {
+        // Next Block is available for coalescing
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        // Delete the next block from its list
         delete_node(NEXT_BLKP(bp));
+        // Update the block info
         PUT(HDRP(bp), PACK(size, prev_alloc, 0));
         PUT(FTRP(bp), PACK_F(size,0));
     }
 
+    // Case 2
     else if (!prev_alloc && next_alloc) {
+        // Previous Block is available for coalescing
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+
         size_t pp_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+
         delete_node(PREV_BLKP(bp));
+
         PUT(FTRP(bp), PACK_F(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, pp_alloc, 0));
+
         bp = PREV_BLKP(bp);
     }
 
     else {
+        // Both are available
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + 
             GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        // Calculate new size, Inherit the prev_alloc info
         size_t pp_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+
         delete_node(PREV_BLKP(bp));
         delete_node(NEXT_BLKP(bp)); 
+
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, pp_alloc, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK_F(size, 0));
+
         bp = PREV_BLKP(bp);
     }
 
+    // Remember to insert the new block back in
     insert_node(bp);
 
     return bp;
 }
 
+// Quick Helper Functions that you won't use
 static void set_prev_alloc(void *bp) {
     PUT(HDRP(bp), GET(HDRP(bp)) | 0x2);
 }
@@ -396,17 +455,21 @@ void mm_checkheap(int lineno) {
 static void place(void *bp, size_t asize)
 {
     size_t csize = GET_SIZE(HDRP(bp));   
+    // Delete before changing size.
     delete_node(bp);
 
     if ((csize - asize) >= (3*DSIZE)) { 
+        // Separate if possible to save resources.
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
         PUT(HDRP(bp), PACK(asize, alloc_p, 1));
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize-asize, 1, 0));
         PUT(FTRP(bp), PACK_F(csize-asize, 0));
+        // Insert after changing size.
         insert_node(bp);
     }
     else { 
+        // If separation not available, we allocate the WHOLE block.
         size_t alloc_p = GET_PREV_ALLOC(HDRP(bp));
         PUT(HDRP(bp), PACK(csize, alloc_p, 1));
         set_prev_alloc(NEXT_BLKP(bp));
@@ -423,6 +486,8 @@ static void *find_fit(size_t asize)
 
     size_t idx = get_list(asize);
 
+    // Find the FIRST FIT
+    // Traverse the freelists, if not available in one, enlarge the size.
     for(int i = idx; i< FREE_LISTS_N; i++){
         if(free_lists[i] == 0) continue;
         for (bp = free_lists[i]; bp!=NULL; bp = GET_NEXT(bp)) {
